@@ -10,6 +10,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 
+import javax.servlet.jsp.tagext.TryCatchFinally;
+
 import org.sqlite.SQLiteConfig;
 
 public class DB<T> {
@@ -33,6 +35,17 @@ public class DB<T> {
 		SQLiteConfig config = new SQLiteConfig();
 		try {
 			this.connection = DriverManager.getConnection("jdbc:sqlite:/" + this.dbFileName, config.toProperties());
+			return true;
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
+	
+	public boolean open(String dbFIleName) {
+		SQLiteConfig config = new SQLiteConfig();
+		try {
+			this.connection = DriverManager.getConnection("jdbc:sqlite:/" + dbFileName, config.toProperties());
 			return true;
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -78,11 +91,49 @@ public class DB<T> {
 	}
 	
 	// create table 쿼리 실행
+//	public boolean createTable(T t) {	// 기존에는 Student student라고 해서 Student라는 객체가 들어온다 명시를 했다. T는 어떤 객체가 들어올지 모른단 뜻. DB를 DB<T>로 Generic(제네릭)을 사용한다.
+//		Class<?> dataClass = t.getClass();	// t의 Class Object를 가져와 return해서 dataClass라는 변수명에 저장.
+//		Field[] dataClassFields = dataClass.getDeclaredFields();	// dataClass라는 클래스의 변수들을 array로 return.
+//		
+//		String fieldString = "";
+//		
+//		for (Field field: dataClassFields) {	//  array로부터 for each 문을 돌면서 하나씩 분해해 쿼리에 넣을 문자열을 만든다.
+//			if (!fieldString.isEmpty()) {
+//				fieldString = fieldString + ",";
+//			}
+//			String fieldName = field.getName();
+//			String fieldType = field.getType().toString();
+//			fieldString = fieldString + fieldName;
+//			if (fieldName.matches("idx")) {
+//				fieldString = fieldString + " INTEGER PRIMARY KEY AUTOINCREMENT";
+//			} else if (fieldType.matches("(int|long)")) {
+//				fieldString = fieldString + " INTEGER";
+//			} else if (fieldType.matches("(float|double)")) {
+//				fieldString = fieldString + " REAL";
+//			} else if (fieldType.matches(".*String")) {
+//				fieldString = fieldString + " TEXT";
+//			}
+//		}
+//		
+//		String query = "CREATE TABLE " + this.tableName + " (" + fieldString + ")";
+//		try {
+//			Statement statement = this.connection.createStatement();
+//			statement.executeUpdate(query);
+//			statement.close();
+//			return true;
+//		} catch (SQLException e) {
+//			e.printStackTrace();
+//		}
+//		return false;
+//	}
+	
 	public boolean createTable(T t) {	// 기존에는 Student student라고 해서 Student라는 객체가 들어온다 명시를 했다. T는 어떤 객체가 들어올지 모른단 뜻. DB를 DB<T>로 Generic(제네릭)을 사용한다.
 		Class<?> dataClass = t.getClass();	// t의 Class Object를 가져와 return해서 dataClass라는 변수명에 저장.
 		Field[] dataClassFields = dataClass.getDeclaredFields();	// dataClass라는 클래스의 변수들을 array로 return.
 		
 		String fieldString = "";
+		String dbFileName = "";
+		String tableName = "";
 		
 		for (Field field: dataClassFields) {	//  array로부터 for each 문을 돌면서 하나씩 분해해 쿼리에 넣을 문자열을 만든다.
 			if (!fieldString.isEmpty()) {
@@ -455,7 +506,7 @@ public class DB<T> {
 //		return htmlText;		
 // 	}
 	
-	// Step 3. select 쿼리 실행 (String return이 잘 안 됨. 아래꺼 사용.)
+	// Step 3. select 쿼리 실행 (메소드를 이용해 String으로 return하는 방법)
 //	public String selectData(T t) {
 //		Class<?> dataClass = t.getClass();
 //		Field[] dataClassFields = dataClass.getDeclaredFields();
@@ -490,12 +541,14 @@ public class DB<T> {
 //			result.close();
 //			statement.close();
 //			
-//			
+//			// DB는 건드리지 않고 Student 클래스 파일만 건드려 반응형으로 이용할거다. 
 //			// Class<?> dataClass 에서 클래스를 읽어오고, Field[] dataClassFields에서 field를 읽어왔다면, 이번에는 메소드를 읽는다.
 //			Method toHtmlStringMethod = dataClass.getDeclaredMethod("toHtmlString");
-//			// DB는 건드리지 않고 Student 클래스 파일만 건드려 반응형으로 이용할거다.
-//			String htmlText = (String)toHtmlStringMethod.invoke(resultDataSet);
-//			return htmlText;
+//			StringBuffer htmlString = new StringBuffer();
+//			for (T row : resultDataSet) {
+//				htmlString.append((String) toHtmlStringMethod.invoke(row));
+//			}
+//			return htmlString.toString();
 //			
 //		} catch (SQLException e) {
 //			e.printStackTrace();
@@ -505,7 +558,7 @@ public class DB<T> {
 //		return "";		
 // 	}
 	
-	// Step 3. select 쿼리 실행
+	// Step 3. select 쿼리 실행 (ArrayList 안에 객체를 넣어 return하는 방법)
 	public ArrayList<T> selectData(T t) {
 		Class<?> dataClass = t.getClass();
 		Field[] dataClassFields = dataClass.getDeclaredFields();
