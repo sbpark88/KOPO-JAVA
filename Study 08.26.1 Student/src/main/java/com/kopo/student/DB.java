@@ -8,7 +8,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 
 import org.sqlite.SQLiteConfig;
 
@@ -16,6 +18,8 @@ public class DB<T> {
 	private String dbFileName;
 	private String tableName;
 	private Connection connection;
+	private T t;
+	
 	static {
 		try {	// 이 이름을 가진 DB가 없을 수도 있기 때문에 try~catch
 			Class.forName("org.sqlite.JDBC");
@@ -24,6 +28,34 @@ public class DB<T> {
 		}
 	}
 	
+	// 파라미터 없는 생성자 추가
+	public DB() {
+		
+	}
+	
+	// dbfileName이랑 tableName을 HomeController가 new Memo()만 넣어서 보내면 Memo 객체 내에 입력된 정보를 사용하도록 변경.
+	public DB(T t) {
+		this.t = t;
+	
+		Class<?> dataClass = t.getClass();
+		Field[] dataClassFields = dataClass.getDeclaredFields();
+	
+		for (Field field : dataClassFields) {
+			String fieldName = field.getName();
+			String fieldType = field.getType().toString();
+			try {
+				if (fieldName.matches("DB_FILE_NAME")) {
+				this.dbFileName = field.get(t).toString();
+			} else if (fieldName.matches("TABLE_NAME")) {
+					this.tableName = field.get(t).toString();
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	// 기존 방식(dbFileName, tableName을 HomeController로부터 String 형태로 직접 전달 받음.)
 	public DB (String dbFileName, String tableName) {
 		this.dbFileName = dbFileName;
 		this.tableName = tableName;
@@ -33,6 +65,18 @@ public class DB<T> {
 		SQLiteConfig config = new SQLiteConfig();
 		try {
 			this.connection = DriverManager.getConnection("jdbc:sqlite:/" + this.dbFileName, config.toProperties());
+			return true;
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
+	
+	// 파라미터를 받아서 open하는거 생성
+	public boolean open(String dbFileName) {
+		SQLiteConfig config = new SQLiteConfig();
+		try {
+			this.connection = DriverManager.getConnection("jdbc:sqlite:/" + dbFileName, config.toProperties());
 			return true;
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -50,6 +94,8 @@ public class DB<T> {
 		}
 	}
 	
+	// 테이블을 생성하자.
+	// Step 1. create table 쿼리 실행
 //	public void createTable() {
 //		String query = "CREATE TABLE " + this.tableName + " (idx INT PRIMARY KEY, name TEXT, middleScore INT, finalScore INT)";
 //		try {
@@ -61,23 +107,25 @@ public class DB<T> {
 //		}
 //	}
 	
-	public void createTable() {
-		String fieldString = "";
-		fieldString = fieldString + "idx INT PRIMARY KEY";
-		fieldString = fieldString + ", name TEXT";
-		fieldString = fieldString + ", middleScore INT";
-		fieldString = fieldString + ", finalScore INT";
-		String query = "CREATE TABLE " + this.tableName + " (" + fieldString + ")";
-		try {
-			Statement statement = this.connection.createStatement();
-			statement.executeUpdate(query);
-			statement.close();
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-	}
+	// Step 2. create table 쿼리 실행
+//	public void createTable() {
+//		String fieldString = "";
+//		fieldString = fieldString + "idx INT PRIMARY KEY";
+//		fieldString = fieldString + ", name TEXT";
+//		fieldString = fieldString + ", middleScore INT";
+//		fieldString = fieldString + ", finalScore INT";
+//		String query = "CREATE TABLE " + this.tableName + " (" + fieldString + ")";
+//		try {
+//			Statement statement = this.connection.createStatement();
+//			statement.executeUpdate(query);
+//			statement.close();
+//		} catch (SQLException e) {
+//			e.printStackTrace();
+//		}
+//	}
 	
-	// create table 쿼리 실행
+	// Step 3. create table 쿼리 실행
+	// 기존 방식(dbFileName, tableName을 HomeController로부터 String 형태로 직접 전달 받음.)일 때 사용.
 	public boolean createTable(T t) {	// 기존에는 Student student라고 해서 Student라는 객체가 들어온다 명시를 했다. T는 어떤 객체가 들어올지 모른단 뜻. DB를 DB<T>로 Generic(제네릭)을 사용한다.
 		Class<?> dataClass = t.getClass();	// t의 Class Object를 가져와 return해서 dataClass라는 변수명에 저장.
 		Field[] dataClassFields = dataClass.getDeclaredFields();	// dataClass라는 클래스의 변수들을 array로 return.
@@ -85,15 +133,17 @@ public class DB<T> {
 		String fieldString = "";
 		
 		for (Field field: dataClassFields) {	//  array로부터 for each 문을 돌면서 하나씩 분해해 쿼리에 넣을 문자열을 만든다.
+			String fieldName = field.getName();
+			String fieldType = field.getType().toString();
+			
 			if (!fieldString.isEmpty()) {
 				fieldString = fieldString + ",";
 			}
-			String fieldName = field.getName();
-			String fieldType = field.getType().toString();
 			fieldString = fieldString + fieldName;
+			
 			if (fieldName.matches("idx")) {
 				fieldString = fieldString + " INTEGER PRIMARY KEY AUTOINCREMENT";
-			} else if (fieldType.matches("(int|long)")) {
+			} else if (fieldType.matches("(int|long|short)")) {
 				fieldString = fieldString + " INTEGER";
 			} else if (fieldType.matches("(float|double)")) {
 				fieldString = fieldString + " REAL";
@@ -113,6 +163,65 @@ public class DB<T> {
 		}
 		return false;
 	}
+	
+	// 새 방식(DB 정보를 class 객체로 빼놓은 경우 사용)
+	public boolean createTable() {				// 파라미터를 따로 받지 않는다.
+		Class<?> dataClass = t.getClass();		// HomeController에 이미 DB db = new DB(new Memo());를 통해 DB가 인스턴스화 되어있다. 그 인스턴스를 사용.
+		Field[] dataClassFields = dataClass.getDeclaredFields();
+		
+		String fieldString = "";
+		String dbFileName = "";			// DB db = new DB(new Memo()); 에서 dbFileName과 tableName을 찾아서 변수에 저장하기 위해 선언.
+		String tableName = "";
+		
+		for (Field field: dataClassFields) {
+			// 클래스에서 변수명(fieldName)과 변수 타입(fieldType)을 읽어온다.
+			String fieldName = field.getName();
+			String fieldType = field.getType().toString();
+	
+			// 인스턴스 된 DB db = new DB(new Memo());로부터 클래스에서 DB 정보를 읽어온다.
+			try {
+				if (fieldName.matches("DB_FILE_NAME")) {	// DB 디렉토리를 추출.
+					dbFileName = field.get(t).toString();
+					continue;
+				} else if (fieldName.matches("TABLE_NAME")) {	// 테이블 이름을 추출.
+					tableName = field.get(t).toString();
+					continue;
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+				return false;
+			}
+			
+			if (!fieldString.isEmpty()) {
+				fieldString = fieldString + ",";
+			}			
+			fieldString = fieldString + fieldName;
+			if (fieldName.matches("idx")) {
+				fieldString = fieldString + " INTEGER PRIMARY KEY AUTOINCREMENT";
+			} else if (fieldType.matches("(int|long|short)")) {
+				fieldString = fieldString + " INTEGER";
+			} else if (fieldType.matches("(float|double)")) {
+				fieldString = fieldString + " REAL";
+			} else if (fieldType.matches(".*String")) {
+				fieldString = fieldString + " TEXT";
+			}
+		}
+		
+		String query = "CREATE TABLE " + tableName + " (" + fieldString + ")";
+		try {
+			this.open(dbFileName);		// DB open과 close를 쿼리 메소드 내에서 한다. dbFileName은 위에서 객체로부터 추출한 정보를 이용.
+			Statement statement = this.connection.createStatement();
+			statement.executeUpdate(query);
+			statement.close();
+			this.close();
+			return true;
+		} catch (SQLException e) {
+			e.printStackTrace();
+			this.close();
+		}
+		return false;
+	}
+	
 	
 	// insert 쿼리 실행
 //	public boolean insertData(T t) {
@@ -262,6 +371,69 @@ public class DB<T> {
 		}
 		return false;
 	}
+	
+	// request 그대로 받아오는 방법.
+//	public boolean insertData(HttpServletRequest request) {
+//		Class<?> dataClass = t.getClass();
+//		Field[] dataClassFields = dataClass.getDeclaredFields();
+//
+//		String fieldString = "";
+//		String valueString = "";
+//
+//		ArrayList<Object> preparedValue = new ArrayList<Object>();
+//
+//		for (Field field : dataClassFields) {
+//			String fieldName = field.getName();
+//			String fieldType = field.getType().toString();
+//			if (fieldName.matches("idx")) {
+//				continue;
+//			}
+//			if (request.getParameter(fieldName) == null && !fieldName.matches("(created|updated)")) {
+//				continue;
+//			}
+//			if (fieldType.matches("(int|long|short)") && !this.isIntegerString(request.getParameter(fieldName))) {
+//				return false;
+//			} else if (fieldType.matches("(float|double)") && !this.isFloatString(request.getParameter(fieldName))) {
+//				return false;
+//			}
+//			if (!fieldString.isEmpty()) {
+//				fieldString = fieldString + ",";
+//			}
+//			if (!valueString.isEmpty()) {
+//				valueString = valueString + ",";
+//			}
+//			fieldString = fieldString + fieldName;
+//			valueString = valueString + "?";
+//			if (fieldName.matches("created")) {
+//				SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+//				Date date = new Date(System.currentTimeMillis());
+//				preparedValue.add(formatter.format(date));
+//			} else if (fieldName.matches("updated")) {
+//				SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+//				Date date = new Date(System.currentTimeMillis());
+//				preparedValue.add(formatter.format(date));
+//			} else {
+//				preparedValue.add(request.getParameter(fieldName));
+//			}
+//		}
+//
+//		String query = "INSERT INTO " + this.tableName + " (" + fieldString + ") VALUES(" + valueString + ")";
+//		try {
+//			this.open();
+//			PreparedStatement statement = this.connection.prepareStatement(query);
+//			for (int i = 0; i < preparedValue.size(); i++) {
+//				statement.setObject(i + 1, preparedValue.get(i));
+//			}
+//			statement.executeUpdate();
+//			statement.close();
+//			this.close();
+//			return true;
+//		} catch (SQLException e) {
+//			e.printStackTrace();
+//			this.close();
+//		}
+//		return false;
+//	}
 	
 	// update 쿼리를 만들자
 	// Step 1. update 쿼리 실행
@@ -455,7 +627,7 @@ public class DB<T> {
 //		return htmlText;		
 // 	}
 	
-	// Step 3. select 쿼리 실행 (String return이 잘 안 됨. 아래꺼 사용.)
+	// Step 3. select 쿼리 실행 (메소드를 이용해 String으로 return하는 방법)
 //	public String selectData(T t) {
 //		Class<?> dataClass = t.getClass();
 //		Field[] dataClassFields = dataClass.getDeclaredFields();
@@ -490,12 +662,14 @@ public class DB<T> {
 //			result.close();
 //			statement.close();
 //			
-//			
+//			// DB는 건드리지 않고 Student 클래스 파일만 건드려 반응형으로 이용할거다. 
 //			// Class<?> dataClass 에서 클래스를 읽어오고, Field[] dataClassFields에서 field를 읽어왔다면, 이번에는 메소드를 읽는다.
 //			Method toHtmlStringMethod = dataClass.getDeclaredMethod("toHtmlString");
-//			// DB는 건드리지 않고 Student 클래스 파일만 건드려 반응형으로 이용할거다.
-//			String htmlText = (String)toHtmlStringMethod.invoke(resultDataSet);
-//			return htmlText;
+//			StringBuffer htmlString = new StringBuffer();
+//			for (T row : resultDataSet) {
+//				htmlString.append((String) toHtmlStringMethod.invoke(row));
+//			}
+//			return htmlString.toString();
 //			
 //		} catch (SQLException e) {
 //			e.printStackTrace();
