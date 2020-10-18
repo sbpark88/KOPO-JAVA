@@ -7,7 +7,7 @@
     <title>Insert title here</title>
   </head>
   <body>
-    <form action="insert">
+    <form action="insert" method="post">
       <input type="text" placeholder="title" name="title" />
       <textarea name="memo" style="width: 100%;"></textarea>
       <input type="submit" value="입력 완료" />

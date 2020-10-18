@@ -11,6 +11,7 @@ import java.sql.Statement;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -76,7 +77,7 @@ public class DB<T> {
 	public boolean open(String dbFileName) {
 		SQLiteConfig config = new SQLiteConfig();
 		try {
-			this.connection = DriverManager.getConnection("jdbc:sqlite:/" + this.dbFileName, config.toProperties());
+			this.connection = DriverManager.getConnection("jdbc:sqlite:/" + dbFileName, config.toProperties());
 			return true;
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -232,7 +233,7 @@ public class DB<T> {
 			fieldString = fieldString + fieldName;
 			if (fieldName.matches("idx")) {
 				fieldString = fieldString + " INTEGER PRIMARY KEY AUTOINCREMENT";
-			} else if (fieldType.matches("(int|long)")) {
+			} else if (fieldType.matches("(int|long|short)")) {
 				fieldString = fieldString + " INTEGER";
 			} else if (fieldType.matches("(float|double)")) {
 				fieldString = fieldString + " REAL";
@@ -528,36 +529,92 @@ public class DB<T> {
 //		return htmlTxt;
 //	}
 	
-	public String selectStringData(T t) {
+//	public String selectStringData(T t) {
+//		Class<?> dataClass = t.getClass();
+//		Field[] dataClassFields = dataClass.getDeclaredFields();
+//
+//		String query = "SELECT * FROM " + this.tableName;
+//		ArrayList<T> resultDataSet = new ArrayList<T>(); 
+//		
+//		try {
+//			Statement statement = this.connection.createStatement();
+//			ResultSet result = statement.executeQuery(query);
+//			while(result.next()) {
+//				T rowData = (T)dataClass.getDeclaredConstructor().newInstance();
+//
+//				for(Field field : dataClassFields) {
+//					String fieldName = field.getName();
+//					String fieldType = field.getType().toString();
+//						
+//					if (fieldType.matches("(int)")) {
+//						field.setInt(rowData, result.getInt(fieldName));
+//					} else if (fieldType.matches("(long)")) {
+//						field.setLong(rowData, result.getLong(fieldName));
+//					} else if (fieldType.matches("(float|double)")) {
+//						field.setDouble(rowData, result.getDouble(fieldName));
+//					} else if (fieldType.matches(".*String")) {
+//						field.set(rowData, result.getString(fieldName));
+//					}
+//				}
+//				resultDataSet.add(rowData);
+//			}
+//			result.close();
+//			statement.close();
+//
+//			// 기존에 안 되서 이 부분을 바꿨구나...
+//			Method toHtmlStringMethod = dataClass.getDeclaredMethod("toHtmlString");
+//			StringBuffer htmlString = new StringBuffer();
+//			for (T row : resultDataSet) {
+//				htmlString.append((String) toHtmlStringMethod.invoke(row));
+//			}
+//			return htmlString.toString();
+//		} catch (SQLException e) {
+//			e.printStackTrace();
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//		return "";
+//	}
+	
+	public String selectDataString() {
 		Class<?> dataClass = t.getClass();
 		Field[] dataClassFields = dataClass.getDeclaredFields();
 
 		String query = "SELECT * FROM " + this.tableName;
-		ArrayList<T> resultDataSet = new ArrayList<T>(); 
+		ArrayList<T> resultDataSet = new ArrayList<T>();
 		try {
+			this.open();
 			Statement statement = this.connection.createStatement();
 			ResultSet result = statement.executeQuery(query);
-			while(result.next()) {
-				T rowData = (T)dataClass.getDeclaredConstructor().newInstance();
+			while (result.next()) {
+				T rowData = (T) dataClass.getDeclaredConstructor().newInstance();
 
-				for(Field field : dataClassFields) {
+				for (Field field : dataClassFields) {
 					String fieldName = field.getName();
 					String fieldType = field.getType().toString();
-						
-					if (fieldType.matches("(int)")) {
+
+					if (fieldName.matches("(DB_FILE_NAME|TABLE_NAME)")) {
+						continue;
+					}
+					if (fieldType.matches("(int|short)")) {
 						field.setInt(rowData, result.getInt(fieldName));
 					} else if (fieldType.matches("(long)")) {
 						field.setLong(rowData, result.getLong(fieldName));
 					} else if (fieldType.matches("(float|double)")) {
 						field.setDouble(rowData, result.getDouble(fieldName));
-					} else if (fieldType.matches(".*String")) {
-						field.set(rowData, result.getString(fieldName));
+					} else if (fieldType.matches(".*String")) {		// insert, update와 달리 select에서는 화면에 'null'이라는 문자가 보이지 않도록 처리한다.
+						if (result.getString(fieldName) == null) {
+							field.set(rowData, "");
+						} else {
+							field.set(rowData, result.getString(fieldName));
+						}
 					}
 				}
 				resultDataSet.add(rowData);
 			}
 			result.close();
 			statement.close();
+			this.close();
 
 			Method toHtmlStringMethod = dataClass.getDeclaredMethod("toHtmlString");
 			StringBuffer htmlString = new StringBuffer();
@@ -567,10 +624,51 @@ public class DB<T> {
 			return htmlString.toString();
 		} catch (SQLException e) {
 			e.printStackTrace();
+			this.close();
 		} catch (Exception e) {
 			e.printStackTrace();
+			this.close();
 		}
 		return "";
+	}
+
+	public HashMap<String, String> detailsData(HttpServletRequest request) {
+		HashMap<String, String> resultData = new HashMap<String, String>();
+		if (request.getParameter("idx") == null && !this.isIntegerString(request.getParameter("idx"))) {
+			return resultData;
+		}
+		Class<?> dataClass = t.getClass();
+		Field[] dataClassFields = dataClass.getDeclaredFields();
+
+		String query = "SELECT * FROM " + this.tableName + " WHERE idx=" + request.getParameter("idx");
+		try {
+			this.open();
+			Statement statement = this.connection.createStatement();
+			ResultSet result = statement.executeQuery(query);
+			if (result.next()) {
+				for (Field field : dataClassFields) {
+					String fieldName = field.getName();
+					String fieldType = field.getType().toString();
+					
+					if (fieldName.matches("(DB_FILE_NAME|TABLE_NAME)")) {
+						continue;
+					}
+					
+					if (result.getString(fieldName) == null) {
+						
+					} else {
+						resultData.put(fieldName, result.getString(fieldName));
+					}
+				}
+			}
+			result.close();
+			statement.close();
+			this.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+			this.close();
+		}
+		return resultData;
 	}
 	
 	public ArrayList<T> selectData(T t) {
@@ -649,6 +747,42 @@ public class DB<T> {
 		return (T)(new Object());
 	}
 	
+	public boolean deleteSelectedOne(HttpServletRequest request) {
+		Class<?> dataClass = t.getClass();
+		Field[] dataClassFields = dataClass.getDeclaredFields();
+		String whereString = "";
+
+		ArrayList<Object> preparedValue = new ArrayList<Object>();
+
+		for (Field field : dataClassFields) {
+			String fieldName = field.getName();
+
+			try {
+				if (fieldName.matches("idx")) {
+					whereString = "idx=" + request.getParameter("idx");
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+
+		String query = "DELETE FROM " + this.tableName + " WHERE " + whereString;
+		try {
+			this.open();
+			PreparedStatement statement = this.connection.prepareStatement(query);
+			for (int i = 0; i < preparedValue.size(); i++) {
+				statement.setObject(i + 1, preparedValue.get(i));
+			}
+			statement.executeUpdate();
+			statement.close();
+			this.close();
+			return true;
+		} catch (SQLException e) {
+			e.printStackTrace();
+			this.close();
+		}
+		return false;
+	}
 	
 	
 	public static boolean isIntegerString(String numericString) {

@@ -10,12 +10,15 @@
     <table style="width: 100%;">
       <thead>
         <tr>
-        <th>idx</th>
-        <th>title</th>
-        <th>memo</th>
-        <th></th>
+          <th>idx</th>
+          <th>title</th>
+          <th>memo</th>
+          <th></th>
+        </tr>
       </thead>
-      ${list }
+      <tbody>
+        ${list }
+      </tbody>
     </table>
     <a href="i1" style="padding: 10px 20px; background: #eee;">글쓰기</a>
   </body>

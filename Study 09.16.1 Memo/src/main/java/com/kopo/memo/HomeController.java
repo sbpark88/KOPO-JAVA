@@ -22,6 +22,8 @@ import org.springframework.web.bind.annotation.RequestMethod;
 @Controller
 public class HomeController {
 	
+	// 기존 방식. 홈과 각 jsp 페이지 자체를 호출하는거 제외하고 DB 디렉토리를 객체 클래스로 뺀 방식은 CommonController에 옮겼다.
+	
 	private static final Logger logger = LoggerFactory.getLogger(HomeController.class);
 	
 	@RequestMapping(value = "/", method = RequestMethod.GET)
@@ -93,18 +95,18 @@ public class HomeController {
 //	}
 	
 	// select
-	@RequestMapping(value = "/list", method = RequestMethod.GET)
-	public String select(Locale locale, Model model) {
-		DB db = new DB<Memo>("/Users/saebyul/SqliteDB/0916memo.db", "memo");
-		
-		if (db.open()) {
-			String htmlString = db.selectStringData(new Memo());
-			model.addAttribute("list", htmlString);
-			db.close();
-		}
-		
-		return "list";
-	}
+//	@RequestMapping(value = "/list", method = RequestMethod.GET)
+//	public String select(Locale locale, Model model) {
+//		DB db = new DB<Memo>("/Users/saebyul/SqliteDB/0916memo.db", "memo");
+//		
+//		if (db.open()) {
+//			String htmlString = db.selectStringData(new Memo());
+//			model.addAttribute("list", htmlString);
+//			db.close();
+//		}
+//		
+//		return "list";
+//	}
 	
 	// update를 위해 사용
 	@RequestMapping(value = "/u1", method = RequestMethod.GET)

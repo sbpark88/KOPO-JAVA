@@ -1,6 +1,7 @@
 package com.kopo.memo;
 
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
 import java.util.Locale;
 
 import javax.servlet.http.HttpServletRequest;
@@ -51,7 +52,7 @@ public class CommonController {
 	}
 	
 	// insert
-	@RequestMapping(value = "/insert", method = RequestMethod.GET)
+	@RequestMapping(value = "/insert", method = RequestMethod.POST)
 	public String insert(Locale locale, Model model, HttpServletRequest request) {
 		try {
 			request.setCharacterEncoding("UTF-8");
@@ -100,4 +101,49 @@ public class CommonController {
 		
 		return "message";
 	}
+	
+	// select
+	@RequestMapping(value = "/list", method = RequestMethod.GET)
+	public String select(Locale locale, Model model, HttpServletRequest request) {
+		try {
+			request.setCharacterEncoding("UTF-8");
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+		
+		if (db.open()) {
+			try {
+				String listString = db.selectDataString();
+				model.addAttribute("list", listString);				
+			} catch (Exception e) {
+				e.printStackTrace();
+				model.addAttribute("htmlString", "데이터를 조회를 할 수 없습니다.");
+			}
+			db.close();
+		} else {
+			model.addAttribute("message", "DB파일을 사용할 수 없습니다.");
+		}
+		
+		return "list";
+	}
+	
+	@RequestMapping(value = "/delete", method = RequestMethod.GET)
+	public String delete(Locale locale, Model model, HttpServletRequest request) {
+		try {
+			request.setCharacterEncoding("UTF-8");
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+		}
+
+		if (db.deleteSelectedOne(request)) {
+			model.addAttribute("message", "데이터를 삭제했습니다.");
+		} else {
+			model.addAttribute("message", "데이터 삭제에 실패했습니다.");
+		}		
+		return "message";
+	}
+
+	
+	
+	
 }

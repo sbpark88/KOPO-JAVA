@@ -8,5 +8,6 @@
 <body>
 
 <P>${message}</P>
+<a href="list" style="padding: 10px 20px; background: #eee;">목록으로</a>
 </body>
 </html>
